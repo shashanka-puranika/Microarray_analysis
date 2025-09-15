@@ -1,0 +1,7 @@
+FileName	Cy3	Cy5
+sample1.txt	normal	tumor
+sample2.txt	normal	tumor
+sample3.txt	normal	tumor
+sample4.txt	normal	tumor
+sample5.txt	normal	tumor
+sample6.txt	normal	tumor
