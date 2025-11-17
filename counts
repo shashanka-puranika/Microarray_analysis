@@ -1,0 +1,105 @@
+install.packages("pheatmap")
+    if (!requireNamespace("BiocManager", quietly = TRUE))
+        install.packages("BiocManager")
+    BiocManager::install("DESeq2")    
+	library(DESeq2)
+	# Load required libraries
+library(DESeq2)
+library(ggplot2)
+library(pheatmap)
+
+# Set working directory
+setwd("rnaseq_analysis/counts")
+
+# Read count data from gene_counts_clean.matrix.tsv
+countData <- read.table("gene_counts_clean.matrix.tsv", 
+                        header = TRUE, 
+                        row.names = 1, 
+                        sep = "\t")
+
+# Remove first 5 columns if they exist (Chr, Start, End, Strand, Length)
+# Comment this out if your file does NOT contain these columns
+countData <- countData[, 6:ncol(countData)]
+
+# Rename sample columns (edit these to match your actual sample names)
+colnames(countData) <- c("Control1", "Control2", "Test1", "Test2")
+
+# Create sample information table
+colData <- data.frame(
+  condition = factor(c("Control", "Control", "Test", "Test")),
+  row.names = colnames(countData)
+)
+
+# Create DESeq2 dataset
+dds <- DESeqDataSetFromMatrix(
+  countData = countData,
+  colData = colData,
+  design = ~ condition
+)
+
+# Pre-filter: remove very low-count genes
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep, ]
+
+# Run DESeq2
+dds <- DESeq(dds)
+
+# Results
+res <- results(dds, contrast = c("condition", "Test", "Control"))
+resOrdered <- res[order(res$padj), ]
+summary(res)
+
+# Save full results
+write.csv(as.data.frame(resOrdered),
+          file = "../results/differential_expression_results.csv")
+
+# Save significant DE genes
+sig_genes <- subset(resOrdered, padj < 0.05 & abs(log2FoldChange) > 1)
+write.csv(as.data.frame(sig_genes),
+          file = "../results/significant_genes.csv")
+
+# Save normalized counts
+normalized_counts <- counts(dds, normalized = TRUE)
+write.csv(normalized_counts,
+          file = "../results/normalized_counts.csv")
+
+# Variance-stabilizing transformation
+vsd <- vst(dds, blind = FALSE)
+
+# PCA plot
+pcaData <- plotPCA(vsd, intgroup = "condition", returnData = TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+pdf("../results/PCA_plot.pdf", width = 8, height = 6)
+ggplot(pcaData, aes(PC1, PC2, color = condition, label = name)) +
+  geom_point(size = 3) +
+  geom_text(vjust = 1.5) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  theme_bw()
+dev.off()
+
+# Heatmap of top 50 DE genes
+top_genes <- head(order(resOrdered$padj), 50)
+mat <- assay(vsd)[top_genes, ]
+mat <- mat - rowMeans(mat)
+
+pdf("../results/heatmap_top50.pdf", width = 10, height = 12)
+pheatmap(mat,
+         annotation_col = colData,
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         show_rownames = FALSE)
+dev.off()
+
+# MA plot
+pdf("../results/MA_plot.pdf", width = 8, height = 6)
+plotMA(res, ylim = c(-5, 5))
+dev.off()
+
+# Dispersion plot
+pdf("../results/dispersion_plot.pdf", width = 8, height = 6)
+plotDispEsts(dds)
+dev.off()
+
+print("Analysis complete! Check the results folder.")
