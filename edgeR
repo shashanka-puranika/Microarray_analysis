@@ -1,42 +1,18 @@
-# 1ï¸âƒ£ Load edgeR
 library(edgeR)
-
-# 2ï¸âƒ£ Read your count file
-# Make sure the first column has gene IDs
 counts <- read.delim("gene_counts_clean.matrix.tsv", row.names = 1, check.names = FALSE)
-
-# Check the first few rows
 head(counts)
-
-# 3ï¸âƒ£ Define your groups (adjust according to your samples)
-# Example: first 3 samples = Control, next 3 = Treatment
 group <- factor(c("Control", "Control","Treatment", "Treatment"))
-
-# 4ï¸âƒ£ Create DGEList
 dge <- DGEList(counts = counts, group = group)
-
-# 5ï¸âƒ£ Filter lowly expressed genes
 keep <- filterByExpr(dge)
 dge <- dge[keep, , keep.lib.sizes = FALSE]
-
-# 6ï¸âƒ£ Normalize
 dge <- calcNormFactors(dge)
-
-# 7ï¸âƒ£ Create design matrix and estimate dispersion
 design <- model.matrix(~group)
 dge <- estimateDisp(dge, design)
-
-# 8ï¸âƒ£ Fit GLM and test for differential expression
 fit <- glmQLFit(dge, design)
 qlf <- glmQLFTest(fit, coef = 2)  # Treatment vs Control
-
-# 9ï¸âƒ£ Get top DE genes
 topTags(qlf)
-
-# 10ï¸âƒ£ Save full results
 results <- topTags(qlf, n = nrow(dge$counts))$table
 write.csv(results, file = "edgeR_results.csv")
-
 library(EnhancedVolcano)
 EnhancedVolcano(results,
                 lab = rownames(results),
