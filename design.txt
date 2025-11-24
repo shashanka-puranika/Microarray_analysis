@@ -1,0 +1,6 @@
+Sample	Group
+SRR4420293      control
+SRR4420294	control
+SRR4420297	test
+SRR4420298	test
+
